@@ -1,0 +1,17 @@
+Binaries at 
+  https://github.com/magarciaEPFL/scaladotnet/downloads
+
+Example command-line:
+
+  scalacompiler.exe -d C:\output\folder C:\sample\HelloWorld.scala -target:msil -Ystruct-dispatch:no-cache -Xassem-name HelloWorld.exe -Xassem-extdirs C:\where\dlls\are -Xshow-class hello.world.Main
+
+  (where "hello.world.Main is the class with the main method)
+
+Batch scripts to bootstrap the compiler under folder "internals".
+
+
+
+Miguel
+http://lamp.epfl.ch/~magarcia/ScalaCompilerCornerReloaded/
+
+
