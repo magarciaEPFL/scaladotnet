@@ -175,7 +175,8 @@ abstract class Enumeration (initial: Int) extends Serializable {
       val value = m.invoke(this, scala.Array.empty[Object]).asInstanceOf[Value]
       // verify that outer points to the correct Enumeration: ticket #3616.
       if (value.outerEnum eq thisenum) {
-        val id = Int.unbox(classOf[Val] getMethod ("id", scala.Array.empty[java.lang.Class]) invoke (value, scala.Array.empty[Object]))
+        val tmp = classOf[Val] getMethod ("id", scala.Array.empty[java.lang.Class]) invoke (value, scala.Array.empty[Object])
+        val id = (tmp.asInstanceOf[java.lang.Integer]).intValue()
         nmap += ((id, name))
       }
     }
