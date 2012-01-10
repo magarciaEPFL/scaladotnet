@@ -3,11 +3,19 @@ Binaries at
 
 Example command-line:
 
-  scalacompiler.exe -d C:\output\folder C:\sample\HelloWorld.scala -target:msil -Ystruct-dispatch:no-cache -Xassem-name HelloWorld.exe -Xassem-extdirs C:\where\dlls\are -Xshow-class hello.world.Main
+  scalacompiler.exe 
+      -d C:\output\folder C:\sample\HelloWorld.scala 
+      -target:msil 
+      -Ystruct-dispatch:no-cache 
+      -Xassem-name HelloWorld.exe 
+      -Xassem-extdirs C:\where\dlls\are 
+      -Xshow-class hello.world.Main
 
   (where "hello.world.Main is the class with the main method)
 
-Batch scripts to bootstrap the compiler under folder "internals".
+Batch scripts to bootstrap the compiler under folder "internals". 
+Bootstrapping is jumpstarted by an initial cross-compilation via 
+  https://github.com/magarciaEPFL/scala/tree/dotnetcrosscompiler
 
 
 
