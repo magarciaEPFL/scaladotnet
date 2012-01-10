@@ -1,0 +1,90 @@
+/*                     __                                               *\
+**     ________ ___   / /  ___     Scala API                            **
+**    / __/ __// _ | / /  / _ |    (c) 2002-2011, LAMP/EPFL             **
+**  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
+** /____/\___/_/ |_/____/_/ | |                                         **
+**                          |/                                          **
+\*                                                                      */
+
+
+package scala.tools
+package util
+
+/** This object provides utility methods to extract elements
+ *  from Strings.
+ *
+ *  @author Martin Odersky
+ *  @version 1.0
+ */
+trait StringOps {
+  def onull(s: String)                            = if (s == null) "" else s
+  def oempty(xs: String*)                         = xs filterNot (x => x == null || x == "")
+  def ojoin(xs: String*): String                  = oempty(xs: _*) mkString " "
+  def ojoin(xs: Seq[String], sep: String): String = oempty(xs: _*) mkString sep
+  def ojoinOr(xs: Seq[String], sep: String, orElse: String) = {
+    val ys = oempty(xs: _*)
+    if (ys.isEmpty) orElse else ys mkString sep
+  }
+
+  def decompose(str: String, sep: Char): List[String] = {
+    def ws(start: Int): List[String] =
+      if (start == str.Length) List()
+      else if (str.Chars(start) == sep) ws(start + 1)
+      else {
+        val end = str.IndexOf(sep, start)
+        if (end < 0) List(str.Substring(start))
+        else _root_.java.lang.String.instancehelper_substring(str, start, end) :: ws(end + 1)
+      }
+    ws(0)
+  }
+
+  def words(str: String): List[String] = decompose(str, ' ')
+
+  def stripPrefixOpt(str: String, prefix: String): Option[String] =
+    if (str StartsWith prefix) Some(str drop prefix.Length)
+    else None
+
+  def stripSuffixOpt(str: String, suffix: String): Option[String] =
+    if (str EndsWith suffix) Some(str dropRight suffix.Length)
+    else None
+
+  def splitWhere(str: String, f: Char => Boolean, doDropIndex: Boolean = false): Option[(String, String)] =
+    splitAt(str, str indexWhere f, doDropIndex)
+
+  def splitAt(str: String, idx: Int, doDropIndex: Boolean = false): Option[(String, String)] =
+    if (idx == -1) None
+    else Some((str take idx, str drop (if (doDropIndex) idx + 1 else idx)))
+
+  /** Returns a string meaning "n elements".
+   *
+   *  @param n        ...
+   *  @param elements ...
+   *  @return         ...
+   */
+  def countElementsAsString(n: Int, elements: String): String =
+    n match {
+      case 0 => "no "    + elements + "s"
+      case 1 => "one "   + elements
+      case 2 => "two "   + elements + "s"
+      case 3 => "three " + elements + "s"
+      case 4 => "four "  + elements + "s"
+      case _ => "" + n + " " + elements + "s"
+    }
+
+  /** Turns a count into a friendly English description if n<=4.
+   *
+   *  @param n        ...
+   *  @return         ...
+   */
+  def countAsString(n: Int): String =
+    n match {
+      case 0 => "none"
+      case 1 => "one"
+      case 2 => "two"
+      case 3 => "three"
+      case 4 => "four"
+      case _ => "" + n
+    }
+}
+
+object StringOps extends StringOps { }
