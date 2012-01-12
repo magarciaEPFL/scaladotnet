@@ -179,7 +179,7 @@ abstract class TypeParser {
     // first pass
     for (tvarCILDef <- typ.GetGenericArguments() ) {
       val tpname = newTypeName(_root_.java.lang.String.instancehelper_replaceAll(tvarCILDef.Name, "!", "")) // TODO are really all type-params named in all assemblies out there? (NO)
-      val tpsym = clazz.newTypeParameter(NoPosition, tpname)
+      val tpsym = clazz.newTypeParameter(tpname)
       classTParams.put(tvarCILDef, tpsym)
       newTParams += tpsym
       tpsym.setInfo(definitions.AnyClass.tpe) // TODO isn't this also be needed later, i.e. during getCLRType
@@ -263,8 +263,8 @@ abstract class TypeParser {
             || ntype.IsInterface /* TODO don't exclude nested ifaces from being type-parsed */
         ) {
         val loader = new loaders.MsilFileLoader(new MsilFile(ntype))
-        val nclazz = statics.newClass(NoPosition, ntype.Name.toTypeName)
-        val nmodule = statics.newModule(NoPosition, ntype.Name)
+        val nclazz = statics.newClass(ntype.Name.toTypeName)
+        val nmodule = statics.newModule(ntype.Name)
         nclazz.setInfo(loader)
         nmodule.setInfo(loader)
         staticDefs.enter(nclazz)
@@ -472,7 +472,7 @@ abstract class TypeParser {
 
       */
       val tpname = "T".toTypeName
-      val s = clazz.newTypeParameter(NoPosition, tpname)
+      val s = clazz.newTypeParameter(tpname)
 
       val ORef2ORefOfT = new TypeMap {
         def apply(tp: Type): Type = tp match {
@@ -525,7 +525,7 @@ abstract class TypeParser {
       // first pass
       for (mvarCILDef <- method.GetGenericArguments() ) {
         val mtpname = newTypeName(_root_.java.lang.String.instancehelper_replaceAll(mvarCILDef.Name, "!", "")) // TODO are really all method-level-type-params named in all assemblies out there? (NO)
-        val mtpsym = methodSym.newTypeParameter(NoPosition, mtpname)
+        val mtpsym = methodSym.newTypeParameter(mtpname)
         methodTParams.put(mvarCILDef, mtpsym)
         newMethodTParams += mtpsym
         mtpsym.setInfo(definitions.AnyClass.tpe) // TODO Q: is this also be needed later, i.e. during getCLRType

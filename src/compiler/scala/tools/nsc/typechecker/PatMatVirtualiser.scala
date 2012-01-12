@@ -53,7 +53,7 @@ trait PatMatVirtualiser extends ast.TreeDSL { self: Analyzer =>
     import typeDebug.{ ptTree, ptBlock, ptLine }
 
     def solveContextBound(contextBoundTp: Type): (Tree, Type) = {
-      val solSym      = NoSymbol.newTypeParameter(NoPosition, newTypeName("SolveImplicit$"))
+      val solSym      = NoSymbol.newTypeParameter(newTypeName("SolveImplicit$"))
       val param       = solSym.setInfo(contextBoundTp.typeSymbol.typeParams(0).info.cloneInfo(solSym)) // TypeBounds(NothingClass.typeConstructor, baseTp)
       val pt          = appliedType(contextBoundTp, List(param.tpeHK))
       val savedUndets = context.undetparams
@@ -1245,7 +1245,7 @@ defined class Foo */
         }
         t match {
           case Function(_, _) if t.symbol == NoSymbol =>
-            t.symbol = currentOwner.newValue(t.pos, nme.ANON_FUN_NAME).setFlag(SYNTHETIC).setInfo(NoType)
+            t.symbol = currentOwner.newAnonymousFunctionValue(t.pos)
             // println("new symbol for "+ (t, t.symbol.ownerChain))
           case Function(_, _) if (t.symbol.owner == NoSymbol) || (t.symbol.owner == origOwner) =>
             // println("fundef: "+ (t, t.symbol.ownerChain, currentOwner.ownerChain))
@@ -1377,19 +1377,19 @@ defined class Foo */
       @inline private def dontStore(tp: Type) = (tp.typeSymbol eq UnitClass) || (tp.typeSymbol eq NothingClass)
       lazy val keepGoing = freshSym(NoPosition, BooleanClass.tpe, "keepGoing") setFlag MUTABLE
       lazy val matchRes  = freshSym(NoPosition, AnyClass.tpe, "matchRes") setFlag MUTABLE
-      override def runOrElse(scrut: Tree, matcher: Tree, scrutTp: Type, resTp: Type, hasDefault: Boolean) = matcher match {
-        case Function(List(x: ValDef), body) =>
-          matchRes.info = if (resTp ne NoType) resTp.widen else AnyClass.tpe // we don't always know resTp, and it might be AnyVal, in which case we can't assign NULL
-          if (dontStore(resTp)) matchRes resetFlag MUTABLE  // don't assign to Unit-typed var's, in fact, make it a val -- conveniently also works around SI-5245
-          BLOCK(
-            VAL(zeroSym)   === REF(NoneModule), // TODO: can we just get rid of explicitly emitted zero? don't know how to do that as a local rewrite...
-            VAL(x.symbol)  === scrut, // reuse the symbol of the function's argument to avoid creating a fresh one and substituting it for x.symbol in body -- the owner structure is repaired by fixerUpper
-            VAL(matchRes)  === mkZero(matchRes.info), // must cast to deal with GADT typing, hence the private mkZero above
-            VAL(keepGoing) === TRUE,
-            body,
-            if(hasDefault) REF(matchRes)
-            else (IF (REF(keepGoing)) THEN MATCHERROR(REF(x.symbol)) ELSE REF(matchRes))
-          )
+      override def runOrElse(scrut: Tree, matcher: Tree, scrutTp: Type, resTp: Type, hasDefault: Boolean) = {
+        val Function(List(x: ValDef), body) = matcher
+        matchRes.info = if (resTp ne NoType) resTp.widen else AnyClass.tpe // we don't always know resTp, and it might be AnyVal, in which case we can't assign NULL
+        if (dontStore(resTp)) matchRes resetFlag MUTABLE  // don't assign to Unit-typed var's, in fact, make it a val -- conveniently also works around SI-5245
+        BLOCK(
+          VAL(zeroSym)   === REF(NoneModule), // TODO: can we just get rid of explicitly emitted zero? don't know how to do that as a local rewrite...
+          VAL(x.symbol)  === scrut, // reuse the symbol of the function's argument to avoid creating a fresh one and substituting it for x.symbol in body -- the owner structure is repaired by fixerUpper
+          VAL(matchRes)  === mkZero(matchRes.info), // must cast to deal with GADT typing, hence the private mkZero above
+          VAL(keepGoing) === TRUE,
+          body,
+          if(hasDefault) REF(matchRes)
+          else (IF (REF(keepGoing)) THEN MATCHERROR(REF(x.symbol)) ELSE REF(matchRes))
+        )
       }
 
       // only used to wrap the RHS of a body
