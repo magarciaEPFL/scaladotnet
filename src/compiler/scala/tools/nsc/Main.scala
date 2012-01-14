@@ -66,8 +66,7 @@ object Main extends Driver with EvalLoop {
       false
     }
     else {
-      if (settings.target.value == "msil")
-        msilLibPath foreach (x => settings.assemrefs.value += (pathSeparator + x))
+      msilLibPath foreach (x => settings.assemrefs.value += (pathSeparator + x));
       true
     }
 

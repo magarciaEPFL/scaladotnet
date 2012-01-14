@@ -44,18 +44,16 @@ abstract class GenMSIL extends SubComponent {
 
       if (settings.debug.value) inform("[running phase " + name + " on icode]")
 
-      //classes is ICodes.classes, a Map[Symbol, IClass]
-      val firstSourceName = (classes.keys find { csym =>  csym.sourceFile != null }).get.sourceFile.name;
-
       val codeGenerator = new BytecodeGenerator
 
+      val entryClassName = opt.showClass.getOrElse("").ToString
       if(opt.showClass.isDefined) { // TODO introduce dedicated setting instead
-        val entryClassName = opt.showClass.get.ToString
         classes.values foreach { iclass => codeGenerator.findEntryPoint(iclass, entryClassName) }
-        if(codeGenerator.entryPoint == null) {
-          val entryclass = opt.showClass.get.ToString
-          warning("Couldn't find entry point in class " + entryclass + ", emitting .dll instead.")
-        }
+      }
+      val needsEntryPoint = Set("exe", "winexe") contains settings.target.value
+      if(needsEntryPoint && (codeGenerator.entryPoint == null)) {
+        if(opt.showClass.isDefined) warning("Couldn't find entry point in class " + entryClassName + ", emitting .dll instead.")
+        else warning("No entry point was given (missing -Xshow-class), emitting .dll instead.")
       }
 
       codeGenerator.initAssembly
@@ -79,8 +77,9 @@ abstract class GenMSIL extends SubComponent {
     /* ------------------------ (1.A) entry point of assembly ------------------------*/
 
     var entryPoint: Symbol = _
-    var firstSourceName    = ""
     var outputFileName     = ""
+
+    val firstSourceName = (global.icodes.classes.keys find { csym =>  csym.sourceFile != null }).get.sourceFile.name;
 
     val notInitializedModules = mutable.HashSet[Symbol]()
 
@@ -112,7 +111,13 @@ abstract class GenMSIL extends SubComponent {
     /* ------------------------ (1.B) assembly initialization ------------------------*/
 
     var assemName: String = _
-    var outDir: java.io.File = new java.io.File(settings.outdir.value)
+    val outDir: java.io.File = {
+      val dirName =
+        if(settings.outdir.isSetByUser && (settings.outdir.value != ".") ) settings.outdir.value
+        else System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
+
+      new java.io.File(dirName)
+    }
 
     var massembly: AssemblyBuilder = _
     var mmodule: ModuleBuilder = _
@@ -140,7 +145,18 @@ abstract class GenMSIL extends SubComponent {
       }
 
       // val srcPath = new java.io.File(settings.sourcedir.value)
-      val fileExtension = (if(entryPoint == null) ".dll" else ".exe")
+      val fileExtension =
+        if(entryPoint == null) {
+          if(settings.target.value == "module") ".netmodule"
+          else ".dll"
+        } else {
+          settings.target.value match {
+            case "exe" | "winexe" => ".exe"
+            case "library"        => ".dll"
+            case "module"         => ".netmodule"
+          }
+        }
+
       outputFileName   = outDir.getPath() + java.io.File.separatorChar + assemName + fileExtension
 
       val assemblyName = new AssemblyName(assemName)
@@ -169,7 +185,8 @@ abstract class GenMSIL extends SubComponent {
       val isIface = (csym.isTrait && !csym.isImplClass)
       val superType : MsilType = if (isIface) null else getReflType(parents.head.typeSymbol);
 
-      val interfaces: Array[MsilType] = parents.tail.map(p => getReflType(p.typeSymbol)).toArray
+      val minIfaces = minimizeInterfaces(parents.tail map (p => p.typeSymbol))
+      val interfaces: Array[MsilType] = minIfaces.map(ts => getReflType(ts)).toArray
 
       val tBuilder =
         if (csym.isNestedClass) {
@@ -182,6 +199,27 @@ abstract class GenMSIL extends SubComponent {
       typebldrs(csym) = tBuilder
 
     } // end of createTypeBuilder
+
+    /** Drop redundant interfaces (ones which are implemented by some
+     *  other parent) from the immediate parents.  This is important on
+     *  android because there is otherwise an interface explosion.
+     */
+    private def minimizeInterfaces(interfaces: List[Symbol]): List[Symbol] = {
+      // TODO a superclass may already extend interfaces also extended by this type.
+      // TODO can we minimize interfaces already in GenICode?
+      var rest   = interfaces
+      var leaves = List.empty[Symbol]
+      while(!rest.isEmpty) {
+        val candidate = rest.head
+        val nonLeaf = leaves exists { lsym => lsym isSubClass candidate }
+        if(!nonLeaf) {
+          leaves = candidate :: (leaves filterNot { lsym => candidate isSubClass lsym })
+        }
+        rest = rest.tail
+      }
+
+      leaves
+    }
 
     /* ------------------------ (3) create class members ------------------------*/
 

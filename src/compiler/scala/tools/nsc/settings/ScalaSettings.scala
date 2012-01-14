@@ -55,10 +55,10 @@ trait ScalaSettings extends AbsScalaSettings
    * -X "Advanced" settings
    */
   val Xhelp         = BooleanSetting    ("-X", "Print a synopsis of advanced options.")
-  val assemname     = StringSetting     ("-Xassem-name", "file", "(Requires -target:msil) Name of the output assembly.", "").dependsOn(target, "msil")
-  val assemrefs     = StringSetting     ("-Xassem-path", "path", "(Requires -target:msil) List of assemblies referenced by the program.", ".").dependsOn(target, "msil")
-  val assemextdirs  = StringSetting     ("-Xassem-extdirs", "dirs", "(Requires -target:msil) List of directories containing assemblies.  default:lib", Defaults.scalaLibDir.path).dependsOn(target, "msil")
-  val sourcedir     = StringSetting     ("-Xsourcedir", "directory", "(Requires -target:msil) Mirror source folder structure in output directory.", ".").dependsOn(target, "msil")
+  val assemname     = StringSetting     ("-Xassem-name", "file", "Name of the output assembly.", "")
+  val assemrefs     = StringSetting     ("-Xassem-path", "path", "List of assemblies referenced by the program.", ".")
+  val assemextdirs  = StringSetting     ("-Xassem-extdirs", "dirs", "List of directories containing assemblies.  default: current folder", "." /* Defaults.scalaLibDir.path */ )
+  val sourcedir     = StringSetting     ("-Xsourcedir", "directory", "Mirror source folder structure in output directory.", ".")
   val checkInit     = BooleanSetting    ("-Xcheckinit", "Wrap field accessors to throw an exception on uninitialized access.")
   val noassertions  = BooleanSetting    ("-Xdisable-assertions", "Generate no assertions or assumptions.")
   val elidebelow    = IntSetting        ("-Xelide-below", "Calls to @elidable methods are omitted if method priority is lower than argument",

@@ -5,7 +5,7 @@ rem =======================================
 del /q %MSIL_OUT%\scalacompiler.exe >nul 2>&1
 del /q %MSIL_OUT%\scalacompiler.pdb >nul 2>&1
 
-%DIRC_FOLDER%\scalacompiler.exe -d %MSIL_OUT% @%OUT_TOP%\out-src-compiler.j2klst -target:msil -Ystruct-dispatch:no-cache -Xassem-name scalacompiler -Xassem-extdirs %DIRB_FOLDER% -Xshow-class scala.tools.nsc.Main 
+%DIRC_FOLDER%\scalacompiler.exe -d %MSIL_OUT% @%OUT_TOP%\out-src-compiler.j2klst -target:exe -Ystruct-dispatch:no-cache -Xassem-name scalacompiler -Xassem-extdirs %DIRB_FOLDER% -Xshow-class scala.tools.nsc.Main 
 
 rem del %OUT_TOP%\out-src-compiler.j2klst >nul 2>&1
 rem del %OUT_TOP%\out-src-msil.j2klst >nul 2>&1

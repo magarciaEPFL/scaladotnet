@@ -4,14 +4,19 @@ Binaries at
 Example command-line:
 
   scalacompiler.exe 
-      -d C:\output\folder C:\sample\HelloWorld.scala 
-      -target:msil 
+      -d C:\output\folder
+      -target:exe
       -Ystruct-dispatch:no-cache 
       -Xassem-name HelloWorld.exe 
       -Xassem-extdirs C:\where\dlls\are 
       -Xshow-class hello.world.Main
+      C:\sample\HelloWorld.scala
 
-  (where "hello.world.Main is the class with the main method)
+  (where "hello.world.Main" is the class with the main method)
+
+Works best if different folders are given for -d and -Xassem-extdirs
+
+Valid options for -target: exe, library, winexe, module.
 
 Batch scripts to bootstrap the compiler under folder "internals". 
 Bootstrapping is jumpstarted by an initial cross-compilation via 

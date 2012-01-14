@@ -5,7 +5,7 @@ rem =======================================
 del /q %MSIL_OUT%\scalalib.dll >nul 2>&1
 del /q %MSIL_OUT%\scalalib.pdb >nul 2>&1
 
-%DIRC_FOLDER%\scalacompiler.exe -sourcepath %OUT_TOP%\src\library -d %MSIL_OUT% @%OUT_TOP%\out-src-library.j2klst -target:msil -Ystruct-dispatch:no-cache -Xassem-name scalalib -Xassem-extdirs %DIRA_FOLDER% 
+%DIRC_FOLDER%\scalacompiler.exe -sourcepath %OUT_TOP%\src\library -d %MSIL_OUT% @%OUT_TOP%\out-src-library.j2klst -target:library -Ystruct-dispatch:no-cache -Xassem-name scalalib -Xassem-extdirs %DIRA_FOLDER% 
 
 rem del %OUT_TOP%\out-src-library.j2klst >nul 2>&1
 

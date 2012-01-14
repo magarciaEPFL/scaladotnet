@@ -42,8 +42,7 @@ class ScalaDoc {
     else if (docSettings.help.value || !hasFiles)
       reporter.echo(command.usageMsg)
     else try {
-      if (docSettings.target.value == "msil")
-        msilLibPath foreach (x => docSettings.assemrefs.value += (pathSeparator + x))
+      msilLibPath foreach (x => docSettings.assemrefs.value += (pathSeparator + x));
 
       new DocFactory(reporter, docSettings) document command.files
     }
