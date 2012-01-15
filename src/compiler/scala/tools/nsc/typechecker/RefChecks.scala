@@ -171,8 +171,7 @@ abstract class RefChecks extends InfoTransform with reflect.internal.transform.R
         def varargBridge(member: Symbol, bridgetpe: Type): Tree = {
           log("Generating varargs bridge for " + member.fullLocationString + " of type " + bridgetpe)
           
-          val bridge = member.cloneSymbolImpl(clazz)
-            .setPos(clazz.pos).setFlag(member.flags | VBRIDGE)
+          val bridge = member.cloneSymbolImpl(clazz, member.flags | VBRIDGE) setPos clazz.pos
           bridge.setInfo(bridgetpe.cloneInfo(bridge))
           clazz.info.decls enter bridge
          
@@ -1167,12 +1166,9 @@ abstract class RefChecks extends InfoTransform with reflect.internal.transform.R
       }
       def createStaticModuleAccessor() = atPhase(phase.next) {
         val method = (
-          sym.owner.newMethod(sym.pos, sym.name.toTermName)
-            setFlag (sym.flags | STABLE)
-            resetFlag MODULE
-            setInfo NullaryMethodType(sym.moduleClass.tpe)
+          sym.owner.newMethod(sym.name.toTermName, sym.pos, (sym.flags | STABLE) & ~MODULE)
+            setInfoAndEnter NullaryMethodType(sym.moduleClass.tpe)
         )
-        sym.owner.info.decls enter method
         localTyper.typedPos(tree.pos)(gen.mkModuleAccessDef(method, sym))
       }
       def createInnerModuleAccessor(vdef: Tree) = List(
