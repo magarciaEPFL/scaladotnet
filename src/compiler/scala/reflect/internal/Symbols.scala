@@ -1458,6 +1458,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
 
     /** The superclass of this class. */
     def superClass: Symbol = if (info.parents.isEmpty) NoSymbol else info.parents.head.typeSymbol
+    def parentSymbols: List[Symbol] = info.parents map (_.typeSymbol)
 
     /** The directly or indirectly inherited mixins of this class
      *  except for mixin classes inherited by the superclass. Mixin classes appear
@@ -2503,17 +2504,13 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     def implicitMembers: List[Symbol] = {
       val tp = info
       if ((implicitMembersCacheKey1 ne tp) || (implicitMembersCacheKey2 ne tp.decls.elems)) {
-        implicitMembersCacheKey1 = tp
-        implicitMembersCacheKey2 = tp.decls.elems
-        // When a package object which defines an implicit, it may turn up here in two
-        // forms which are not recognized as the same implicit definition, creating a
-        // spurious ambiguity (see pos/t3999). Since I haven't figured out package objects
-        // well enough to fix this at the root, I am filtering here by applying the
-        // property that a member's owner must be unique.
-        if (isPackageClass)
-          implicitMembersCacheValue = tp.implicitMembers filter (_.owner eq this)
-        else
+        // Skip a package object class, because the members are also in
+        // the package and we wish to avoid spurious ambiguities as in pos/t3999.
+        if (!isPackageObjectClass) {
+          implicitMembersCacheKey1 = tp
+          implicitMembersCacheKey2 = tp.decls.elems
           implicitMembersCacheValue = tp.implicitMembers
+        }
       }
       implicitMembersCacheValue
     }
