@@ -7,6 +7,7 @@ package scala.tools
 package util
 
 object EditDistance {
+  
   def similarString(name: String, allowed: TraversableOnce[String]): String = {
     val suggested = suggestions(name, allowed.toSeq, maxDistance = 1, maxSuggestions = 2)
     if (suggested.isEmpty) ""
@@ -46,7 +47,7 @@ object EditDistance {
       var j = 1
       while (j <= m) {
         val t_j   = t(j - 1)
-        val cost  = if (s_i == t_j) 0 else 1
+        val cost  = if (java.lang.Character.toLowerCase(s_i) == java.lang.Character.toLowerCase(t_j)) 0 else 1
 
         val c1 = d(i - 1)(j) + 1
         val c2 = d(i)(j - 1) + 1
