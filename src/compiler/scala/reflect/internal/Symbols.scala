@@ -2542,7 +2542,6 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     override def enclClass: Symbol = this
     override def toplevelClass: Symbol = this
     override def enclMethod: Symbol = this
-    override def owner: Symbol = abort("no-symbol does not have owner")
     override def sourceFile: AbstractFileType = null
     override def ownerChain: List[Symbol] = List()
     override def ownersIterator: Iterator[Symbol] = Iterator.empty
@@ -2555,6 +2554,11 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     override def accessBoundary(base: Symbol): Symbol = RootClass
     def cloneSymbolImpl(owner: Symbol, newFlags: Long): Symbol = abort()
     override def originalEnclosingMethod = this
+
+    override def owner: Symbol =
+      abort("no-symbol does not have an owner (this is a bug: scala " + scala.util.Properties.versionString + ")")
+    override def typeConstructor: Type =
+      abort("no-symbol does not have a type constructor (this may indicate scalac cannot find fundamental classes)")
   }
 
   /** Derives a new list of symbols from the given list by mapping the given
