@@ -1531,7 +1531,7 @@ abstract class GenICode extends SubComponent  {
       if (mustUseAnyComparator) {
         // when -optimise is on we call the @inline-version of equals, found in ScalaRunTime
         val equalsMethod =
-          if (!settings.XO.value) {
+          if (!settings.optimise.value) {
             def default = platform.externalEquals
             platform match {
               case x: JavaPlatform =>
@@ -1553,7 +1553,7 @@ abstract class GenICode extends SubComponent  {
 
         val ctx1 = genLoad(l, ctx, ObjectReference)
         val ctx2 = genLoad(r, ctx1, ObjectReference)
-        ctx2.bb.emit(CALL_METHOD(equalsMethod, if (settings.XO.value) Dynamic else Static(false)))
+        ctx2.bb.emit(CALL_METHOD(equalsMethod, if (settings.optimise.value) Dynamic else Static(false)))
         ctx2.bb.emit(CZJUMP(thenCtx.bb, elseCtx.bb, NE, BOOL))
         ctx2.bb.close
       }
