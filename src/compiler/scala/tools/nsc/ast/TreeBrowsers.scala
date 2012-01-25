@@ -12,9 +12,25 @@ package ast
 abstract class TreeBrowsers {
   val global: Global
   import global._
+  import nme.EMPTY
+
+  val borderSize = 10
 
   def create(): SwingBrowser = new SwingBrowser();
 
+  /** Pseudo tree class, so that all JTree nodes are treated uniformly */
+  case class ProgramTree(units: List[UnitTree]) extends Tree {
+    override def ToString: String = "Program"
+  }
+
+  /** Pseudo tree class, so that all JTree nodes are treated uniformly */
+  case class UnitTree(unit: CompilationUnit) extends Tree {
+    override def ToString: String = unit.ToString
+  }
+
+  /**
+   * Java Swing pretty printer for Scala abstract syntax trees.
+   */
   class SwingBrowser {
 
     def browse(t: Tree): Tree = {
