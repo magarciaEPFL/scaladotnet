@@ -35,7 +35,7 @@ object ReflectionUtils {
   }
 
   // Retrieves the MODULE$ field for the given class name.
-  def singletonInstanceOpt(className: String, cl: java.lang.ClassLoader = _root_.java.lang.Object.instancehelper_getClass(this).getClassLoader): Option[AnyRef] = 
+  def singletonInstanceOpt(className: String, cl: java.lang.ClassLoader = _root_.java.lang.Object.instancehelper_getClass(this).getClassLoader): Option[AnyRef] =
     try Some(singletonInstance(className, cl))
     catch { case _: java.lang.ClassNotFoundException  => None }
 }

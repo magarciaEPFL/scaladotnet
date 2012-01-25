@@ -12,3 +12,5 @@ package io
  */
 class MsilFile(val msilType: IKVM.Reflection.Type) extends VirtualFile(msilType.FullName, msilType.Namespace) {
 }
+
+object NoMsilFile extends MsilFile(null) { }
