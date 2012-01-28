@@ -34,7 +34,7 @@ abstract class SourceFile {
    *  For regular source files, simply return the argument.
    */
   def positionInUltimateSource(position: Position) = position
-  override def ToString(): String = file.name /* + ":" + content.length */
+  override def ToString() = file.name
   def dbg(offset: Int) = (new OffsetPosition(this, offset)).dbgString
   def path = file.path
 
@@ -61,7 +61,7 @@ object NoSourceFile extends SourceFile {
   def length                    = -1
   def offsetToLine(offset: Int) = -1
   def lineToOffset(index : Int) = -1
-  override def ToString = "NoSourceFile"
+  override def ToString = "<no source file>"
 }
 
 object NoFile extends VirtualFile("<no file>", "<no file>")
