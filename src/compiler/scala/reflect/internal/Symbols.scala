@@ -251,6 +251,10 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
       def freshName() = { cnt += 1; nme.syntheticParamName(cnt) }
       mmap(argtypess)(tp => newValueParameter(freshName(), focusPos(owner.pos), SYNTHETIC) setInfo tp)
     }
+    
+    def newSyntheticTypeParam(): Symbol                             = newSyntheticTypeParam("T0", 0L)
+    def newSyntheticTypeParam(name: String, newFlags: Long): Symbol = newTypeParameter(newTypeName(name), NoPosition, newFlags) setInfo TypeBounds.empty
+    def newSyntheticTypeParams(num: Int): List[Symbol]              = (0 until num).toList map (n => newSyntheticTypeParam("T" + n, 0L))
 
     /** Create a new existential type skolem with this symbol its owner,
      *  based on the given symbol and origin.
@@ -1830,6 +1834,18 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
           if (isModule) moduleClass.makeNotPrivate(base)
         }
       }
+    }
+
+    /** Remove any access boundary and clear flags PROTECTED | PRIVATE.
+     */
+    def makePublic = this setPrivateWithin NoSymbol resetFlag AccessFlags
+    
+    /** The first parameter to the first argument list of this method,
+     *  or NoSymbol if inapplicable.
+     */
+    def firstParam = info.params match {
+      case p :: _ => p
+      case _      => NoSymbol
     }
 
     /** change name by appending $$<fully-qualified-name-of-class `base`>
