@@ -15,8 +15,9 @@ mkdir %DIRA_FOLDER%\classes
 javac -d %DIRA_FOLDER%\classes %J2K_BASE%\src\library\scala\math\ScalaNumber.java %J2K_BASE%\src\library\scala\reflect\ScalaSignature.java %J2K_BASE%\src\library\scala\reflect\ScalaLongSignature.java %J2K_BASE%\src\library\scala\runtime\ArrayRuntime.java %J2K_BASE%\src\library\scala\runtime\BoxesRuntime.java %J2K_BASE%\src\library\scala\runtime\TraitSetter.java
 
 del additional_java_sources_in_scalaruntime.txt >nul 2>&1 
-dir %J2K_BASE%\src\library\scala\runtime\*Ref.java /s /b      >  additional_java_sources_in_scalaruntime.txt
-dir %J2K_BASE%\src\library\scala\runtime\BoxedUnit.java /s /b >> additional_java_sources_in_scalaruntime.txt
+dir %J2K_BASE%\src\library\scala\runtime\*Ref.java /s /b         >  additional_java_sources_in_scalaruntime.txt
+dir %J2K_BASE%\src\library\scala\runtime\BoxedUnit.java /s /b    >> additional_java_sources_in_scalaruntime.txt
+dir %J2K_BASE%\src\library\scala\collection\mutable\*.java /s /b >> additional_java_sources_in_scalaruntime.txt
 javac -d %DIRA_FOLDER%\classes @additional_java_sources_in_scalaruntime.txt
 del additional_java_sources_in_scalaruntime.txt >nul 2>&1 
 

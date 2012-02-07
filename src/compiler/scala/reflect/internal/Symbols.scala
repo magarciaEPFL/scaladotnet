@@ -2599,7 +2599,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
   }
 
   class FreeVar(name0: TermName, val value: Any) extends TermSymbol(NoSymbol, NoPosition, name0) {
-    override def GetHashCode = value.GetHashCode
+    override def GetHashCode = if (value == null) 0 else value.GetHashCode
     override def Equals(other: Any): Boolean = other match {
       case that: FreeVar => this.value.asInstanceOf[AnyRef] eq that.value.asInstanceOf[AnyRef]
       case _             => false
