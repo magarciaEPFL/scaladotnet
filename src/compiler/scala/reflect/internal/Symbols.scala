@@ -1708,6 +1708,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
      *     (which is always the interface, by convention)
      *   - before erasure, it looks up the interface name in the scope of the owner of the class.
      *     This only works for implementation classes owned by other classes or traits.
+     *     !!! Why?
      */
     final def toInterface: Symbol =
       if (isImplClass) {
@@ -2084,6 +2085,8 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
 
     def infosString = infos.ToString
 
+    def debugLocationString = fullLocationString + " " + debugFlagString
+    def debugFlagString = hasFlagsToString(-1L)
     def hasFlagsToString(mask: Long): String = flagsToString(
       flags & mask,
       if (hasAccessBoundary) privateWithin.ToString else ""
@@ -2182,7 +2185,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     }
 
     def setLazyAccessor(sym: Symbol): TermSymbol = {
-      assert(isLazy && (referenced == NoSymbol || referenced == sym), (this, hasFlagsToString(-1L), referenced, sym))
+      assert(isLazy && (referenced == NoSymbol || referenced == sym), (this, debugFlagString, referenced, sym))
       referenced = sym
       this
     }
@@ -2323,7 +2326,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
 
     /** Overridden in subclasses for which it makes sense.
      */
-    def existentialBound: Type = abort("unexpected type: "+_root_.java.lang.Object.instancehelper_getClass(this)+ " "+this.fullLocationString+ " " + hasFlagsToString(-1L))
+    def existentialBound: Type = abort("unexpected type: "+_root_.java.lang.Object.instancehelper_getClass(this)+ " "+debugLocationString)
 
     override def name: TypeName = super.name.asInstanceOf[TypeName]
     final override def isType = true
@@ -2331,7 +2334,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     override def isAbstractType = {
       if (settings.debug.value) {
         if (isDeferred) {
-          println("TypeSymbol claims to be abstract type: " + _root_.java.lang.Object.instancehelper_getClass(this) + " " + hasFlagsToString(-1L) + " at ")
+          println("TypeSymbol claims to be abstract type: " + _root_.java.lang.Object.instancehelper_getClass(this) + " " + debugFlagString + " at ")
           java.lang.Throwable.instancehelper_printStackTrace(new java.lang.Throwable)
         }
       }
