@@ -18,6 +18,7 @@ del additional_java_sources_in_scalaruntime.txt >nul 2>&1
 dir %J2K_BASE%\src\library\scala\runtime\*Ref.java /s /b         >  additional_java_sources_in_scalaruntime.txt
 dir %J2K_BASE%\src\library\scala\runtime\BoxedUnit.java /s /b    >> additional_java_sources_in_scalaruntime.txt
 dir %J2K_BASE%\src\library\scala\collection\mutable\*.java /s /b >> additional_java_sources_in_scalaruntime.txt
+dir %J2K_BASE%\src\library\scala\concurrent\impl\*.java /s /b    >> additional_java_sources_in_scalaruntime.txt
 javac -d %DIRA_FOLDER%\classes @additional_java_sources_in_scalaruntime.txt
 del additional_java_sources_in_scalaruntime.txt >nul 2>&1 
 

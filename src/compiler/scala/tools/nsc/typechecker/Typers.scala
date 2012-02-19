@@ -931,10 +931,14 @@ trait Typers extends Modes with Adaptations with PatMatVirtualiser {
           }
           if (tree.isType)
             adaptType()
-          else if (inExprModeButNot(mode, FUNmode) && tree.symbol != null && tree.symbol.isMacro && !tree.isDef) {
-            val tree1 = expandMacro(tree)
-            if (tree1.isErroneous) tree1 else typed(tree1, mode, pt) 
-          } else if ((mode & (PATTERNmode | FUNmode)) == (PATTERNmode | FUNmode))
+          else if (inExprModeButNot(mode, FUNmode) && tree.symbol != null && tree.symbol.isMacro && !tree.isDef && !(tree exists (_.isErroneous)))
+            macroExpand(tree, this) match {
+              case Some(expanded: Tree) =>
+                typed(expanded, mode, pt)
+              case None =>
+                setError(tree) // error already reported
+            }
+          else if ((mode & (PATTERNmode | FUNmode)) == (PATTERNmode | FUNmode))
             adaptConstrPattern()
           else if (inAllModes(mode, EXPRmode | FUNmode) &&
             !tree.tpe.isInstanceOf[MethodType] &&
@@ -2159,6 +2163,10 @@ trait Typers extends Modes with Adaptations with PatMatVirtualiser {
                   // error for this is issued in RefChecks.checkDefaultsInOverloaded
                   if (!e.sym.isErroneous && !e1.sym.isErroneous && !e.sym.hasDefaultFlag &&
                       !e.sym.hasAnnotation(BridgeClass) && !e1.sym.hasAnnotation(BridgeClass)) {
+                    log("Double definition detected:\n  " +
+                      ((_root_.java.lang.Object.instancehelper_getClass(e.sym), e.sym.info, e.sym.ownerChain)) + "\n  " + 
+                      ((_root_.java.lang.Object.instancehelper_getClass(e1.sym), e1.sym.info, e1.sym.ownerChain)))
+                      
                     DefDefinedTwiceError(e.sym, e1.sym)
                     scope.unlink(e1) // need to unlink to avoid later problems with lub; see #2779
                   }
@@ -4540,13 +4548,6 @@ trait Typers extends Modes with Adaptations with PatMatVirtualiser {
         }
       }
     }
-
-    def expandMacro(tree: Tree): Tree =
-      macroExpand(tree, context) match {
-        case Some(t: Tree) => t
-        case Some(t)       => MacroExpandError(tree, t)
-        case None          => setError(tree) // error already reported
-      }
 
     def atOwner(owner: Symbol): Typer =
       newTyper(context.make(context.tree, owner))
