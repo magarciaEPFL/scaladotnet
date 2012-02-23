@@ -452,6 +452,19 @@ abstract class UnCurry extends InfoTransform
       }
     }
 
+    /** Called if a tree's symbol is elidable.  If it's a DefDef,
+     *  replace only the body/rhs with 0/false/()/null; otherwise replace
+     *  the whole tree with it.
+     */
+    private def replaceElidableTree(tree: Tree): Tree = {
+      tree match {
+        case DefDef(_,_,_,_,_,_) =>
+          deriveDefDef(tree)(rhs => Block(Nil, gen.mkZero(rhs.tpe)) setType rhs.tpe) setSymbol tree.symbol setType tree.tpe
+        case _ =>
+          gen.mkZero(tree.tpe) setType tree.tpe
+      }
+    }
+
 // ------ The tree transformers --------------------------------------------------------
 
     def mainTransform(tree: Tree): Tree = {
@@ -489,108 +502,96 @@ abstract class UnCurry extends InfoTransform
         finally this.inConstructorFlag = saved
       }
 
-      tree match {
-        case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-          if (dd.symbol hasAnnotation VarargsClass) saveRepeatedParams(dd)
-          withNeedLift(false) {
-            if (tree.symbol.isClassConstructor) {
-              atOwner(tree.symbol) {
-                val rhs1 = (rhs: @unchecked) match {
-                  case Block(stats, expr) =>
-                    def transformInConstructor(stat: Tree) =
-                      withInConstructorFlag(INCONSTRUCTOR) { transform(stat) }
-                    val presupers = treeInfo.preSuperFields(stats) map transformInConstructor
-                    val rest = stats drop presupers.length
-                    val supercalls = rest take 1 map transformInConstructor
-                    val others = rest drop 1 map transform
-                    treeCopy.Block(rhs, presupers ::: supercalls ::: others, transform(expr))
+      val sym = tree.symbol
+      val result = (
+        // TODO - settings.noassertions.value temporarily retained to avoid
+        // breakage until a reasonable interface is settled upon.
+        if ((sym ne null) && (sym.elisionLevel.exists (_ < settings.elidebelow.value || settings.noassertions.value)))
+          replaceElidableTree(tree)
+        else tree match {
+          case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+            if (dd.symbol hasAnnotation VarargsClass) saveRepeatedParams(dd)
+            withNeedLift(false) {
+              if (dd.symbol.isClassConstructor) {
+                atOwner(sym) {
+                  val rhs1 = (rhs: @unchecked) match {
+                    case Block(stats, expr) =>
+                      def transformInConstructor(stat: Tree) =
+                        withInConstructorFlag(INCONSTRUCTOR) { transform(stat) }
+                      val presupers = treeInfo.preSuperFields(stats) map transformInConstructor
+                      val rest = stats drop presupers.length
+                      val supercalls = rest take 1 map transformInConstructor
+                      val others = rest drop 1 map transform
+                      treeCopy.Block(rhs, presupers ::: supercalls ::: others, transform(expr))
+                  }
+                  treeCopy.DefDef(
+                    tree, mods, name, transformTypeDefs(tparams),
+                    transformValDefss(vparamss), transform(tpt), rhs1)
                 }
-                treeCopy.DefDef(
-                  tree, mods, name, transformTypeDefs(tparams),
-                  transformValDefss(vparamss), transform(tpt), rhs1)
+              } else {
+                super.transform(tree)
               }
-            } else {
+            }
+          case ValDef(_, _, _, rhs) =>
+            if (sym eq NoSymbol) throw new java.lang.IllegalStateException("Encountered Valdef without symbol: "+ tree + " in "+ unit)
+            // a local variable that is mutable and free somewhere later should be lifted
+            // as lambda lifting (coming later) will wrap 'rhs' in an Ref object.
+            if (!sym.owner.isSourceMethod)
+              withNeedLift(true) { super.transform(tree) }
+            else
               super.transform(tree)
-            }
-          }
-        case ValDef(_, _, _, rhs) =>
-          val sym = tree.symbol
-          if (sym eq NoSymbol) throw new java.lang.IllegalStateException("Encountered Valdef without symbol: "+ tree + " in "+ unit)
-          // a local variable that is mutable and free somewhere later should be lifted
-          // as lambda lifting (coming later) will wrap 'rhs' in an Ref object.
-          if (!sym.owner.isSourceMethod)
+          case UnApply(fn, args) =>
+            val fn1 = withInPattern(false)(transform(fn))
+            val args1 = transformTrees(fn.symbol.name match {
+              case nme.unapply    => args
+              case nme.unapplySeq => transformArgs(tree.pos, fn.symbol, args, analyzer.unapplyTypeListFromReturnTypeSeq(fn.tpe))
+              case _              => sys.error("internal error: UnApply node has wrong symbol")
+            })
+            treeCopy.UnApply(tree, fn1, args1)
+
+          case Apply(fn, args) =>
+            if (fn.symbol == Object_synchronized && shouldBeLiftedAnyway(args.head))
+              transform(treeCopy.Apply(tree, fn, List(liftTree(args.head))))
+            else
+              withNeedLift(true) {
+                val formals = fn.tpe.paramTypes
+                treeCopy.Apply(tree, transform(fn), transformTrees(transformArgs(tree.pos, fn.symbol, args, formals)))
+              }
+
+          case Assign(Select(_, _), _) =>
             withNeedLift(true) { super.transform(tree) }
-          else
-            super.transform(tree)
-/*
-        case Apply(Select(Block(List(), Function(vparams, body)), nme.apply), args) =>
-          // perform beta-reduction; this helps keep view applications small
-          println("beta-reduce1: "+tree)
-          withNeedLift(true) {
-            mainTransform(new TreeSubstituter(vparams map (_.symbol), args).transform(body))
-          }
 
-        case Apply(Select(Function(vparams, body), nme.apply), args) =>
-//        if (List.forall2(vparams, args)((vparam, arg) => treeInfo.isAffineIn(body) ||
-//                                        treeInfo.isExprSafeToInline(arg))) =>
-          // perform beta-reduction; this helps keep view applications small
-          println("beta-reduce2: "+tree)
-          withNeedLift(true) {
-            mainTransform(new TreeSubstituter(vparams map (_.symbol), args).transform(body))
-          }
-*/
-        case UnApply(fn, args) =>
-          val fn1 = withInPattern(false)(transform(fn))
-          val args1 = transformTrees(fn.symbol.name match {
-            case nme.unapply    => args
-            case nme.unapplySeq => transformArgs(tree.pos, fn.symbol, args, analyzer.unapplyTypeListFromReturnTypeSeq(fn.tpe))
-            case _              => sys.error("internal error: UnApply node has wrong symbol")
-          })
-          treeCopy.UnApply(tree, fn1, args1)
+          case Assign(lhs, _) if lhs.symbol.owner != currentMethod || lhs.symbol.hasFlag(LAZY | ACCESSOR) =>
+            withNeedLift(true) { super.transform(tree) }
 
-        case Apply(fn, args) =>
-          if (fn.symbol == Object_synchronized && shouldBeLiftedAnyway(args.head))
-            transform(treeCopy.Apply(tree, fn, List(liftTree(args.head))))
-          else
-            withNeedLift(true) {
-              val formals = fn.tpe.paramTypes
-              treeCopy.Apply(tree, transform(fn), transformTrees(transformArgs(tree.pos, fn.symbol, args, formals)))
+          case Try(block, catches, finalizer) =>
+            if (needTryLift || shouldBeLiftedAnyway(tree)) transform(liftTree(tree))
+            else super.transform(tree)
+
+          case CaseDef(pat, guard, body) =>
+            val pat1 = withInPattern(true)(transform(pat))
+            treeCopy.CaseDef(tree, pat1, transform(guard), transform(body))
+
+          case fun @ Function(_, _) =>
+            mainTransform(transformFunction(fun))
+
+          case Template(_, _, _) =>
+            withInConstructorFlag(0) { super.transform(tree) }
+
+          case _ =>
+            val tree1 = super.transform(tree)
+            if (isByNameRef(tree1)) {
+              val tree2 = tree1 setType functionType(Nil, tree1.tpe)
+              return {
+                if (noApply contains tree2) tree2
+                else localTyper.typedPos(tree1.pos)(Apply(Select(tree2, nme.apply), Nil))
+              }
             }
-
-        case Assign(Select(_, _), _) =>
-          withNeedLift(true) { super.transform(tree) }
-
-        case Assign(lhs, _) if lhs.symbol.owner != currentMethod || lhs.symbol.hasFlag(LAZY | ACCESSOR) =>
-          withNeedLift(true) { super.transform(tree) }
-
-        case Try(block, catches, finalizer) =>
-          if (needTryLift || shouldBeLiftedAnyway(tree)) transform(liftTree(tree))
-          else super.transform(tree)
-
-        case CaseDef(pat, guard, body) =>
-          val pat1 = withInPattern(true)(transform(pat))
-          treeCopy.CaseDef(tree, pat1, transform(guard), transform(body))
-
-        case fun @ Function(_, _) =>
-          mainTransform(transformFunction(fun))
-
-        case Template(_, _, _) =>
-          withInConstructorFlag(0) { super.transform(tree) }
-
-        case _ =>
-          val tree1 = super.transform(tree)
-          if (isByNameRef(tree1)) {
-            val tree2 = tree1 setType functionType(Nil, tree1.tpe)
-            return {
-              if (noApply contains tree2) tree2
-              else localTyper.typedPos(tree1.pos)(Apply(Select(tree2, nme.apply), Nil))
-            }
-          }
-          tree1
-      }
-    } setType {
-      assert(tree.tpe != null, tree + " tpe is null")
-      uncurryTreeType(tree.tpe)
+            tree1
+        }
+      )
+      assert(result.tpe != null, result + " tpe is null")
+      result setType uncurryTreeType(result.tpe)
     }
 
     def postTransform(tree: Tree): Tree = atPhase(phase.next) {
@@ -619,21 +620,21 @@ abstract class UnCurry extends InfoTransform
          * In particular, this case will add:
          * - synthetic Java varargs forwarders for repeated parameters
          */
-        case Template(parents, self, body) =>
+        case Template(_, _, _) =>
           localTyper = typer.atOwner(tree, currentClass)
-          val tmpl = if (!forMSIL || forMSIL) {
-            treeCopy.Template(tree, parents, self, transformTrees(newMembers.toList) ::: body)
-          } else super.transform(tree).asInstanceOf[Template]
-          newMembers.clear
-          tmpl
-        case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-          val rhs1 = nonLocalReturnKeys.get(tree.symbol) match {
-            case None => rhs
-            case Some(k) => atPos(rhs.pos)(nonLocalReturnTry(rhs, k, tree.symbol))
-          }
-          val flatdd = treeCopy.DefDef(tree, mods, name, tparams, List(vparamss.flatten), tpt, rhs1)
-          if (dd.symbol hasAnnotation VarargsClass) addJavaVarargsForwarders(dd, flatdd, tree)
-          flatdd
+          try deriveTemplate(tree)(transformTrees(newMembers.toList) ::: _)
+          finally newMembers.clear()
+
+        case dd @ DefDef(_, _, _, vparamss0, _, rhs0) =>
+          val flatdd = copyDefDef(dd)(
+            vparamss = List(vparamss0.flatten),
+            rhs = nonLocalReturnKeys get dd.symbol match {
+              case Some(k) => atPos(rhs0.pos)(nonLocalReturnTry(rhs0, k, dd.symbol))
+              case None    => rhs0
+            }
+          )
+          addJavaVarargsForwarders(dd, flatdd)
+
         case Try(body, catches, finalizer) =>
           if (opt.virtPatmat) { if(catches exists (cd => !treeInfo.isCatchCase(cd))) debugwarn("VPM BUG! illegal try/catch "+ catches); tree }
           else if (catches forall treeInfo.isCatchCase) tree
@@ -696,9 +697,9 @@ abstract class UnCurry extends InfoTransform
      * It looks for the method in the `repeatedParams` map, and generates a Java-style
      * varargs forwarder. It then adds the forwarder to the `newMembers` sequence.
      */
-    private def addJavaVarargsForwarders(dd: DefDef, flatdd: DefDef, tree: Tree): Unit = {
-      if (!repeatedParams.contains(dd.symbol))
-        return
+    private def addJavaVarargsForwarders(dd: DefDef, flatdd: DefDef): DefDef = {
+      if (!dd.symbol.hasAnnotation(VarargsClass) || !repeatedParams.contains(dd.symbol))
+        return flatdd
 
       def toSeqType(tp: Type): Type = {
         val arg = elementType(ArrayClass, tp)
@@ -719,7 +720,7 @@ abstract class UnCurry extends InfoTransform
 
       val reps          = repeatedParams(dd.symbol)
       val rpsymbols     = reps.map(_.symbol).toSet
-      val theTyper      = typer.atOwner(tree, currentClass)
+      val theTyper      = typer.atOwner(dd, currentClass)
       val flatparams    = flatdd.vparamss.head
 
       // create the type
@@ -771,10 +772,11 @@ abstract class UnCurry extends InfoTransform
         case None =>
           // enter symbol into scope
           currentClass.info.decls enter forwsym
-
           // add the method to `newMembers`
           newMembers += forwtree
       }
+      
+      flatdd
     }
   }
 }

@@ -68,7 +68,7 @@ abstract class LazyVals extends Transform with TypingTransformers with ast.TreeD
       curTree = tree
 
       tree match {
-        case DefDef(mods, name, tparams, vparams, tpt, rhs) => atOwner(tree.symbol) {
+        case DefDef(_, _, _, _, _, rhs) => atOwner(tree.symbol) {
           val res = if (!sym.owner.isClass && sym.isLazy) {
             val enclosingClassOrDummyOrMethod = {
               val enclMethod = sym.enclMethod
@@ -90,11 +90,10 @@ abstract class LazyVals extends Transform with TypingTransformers with ast.TreeD
           } else
             super.transform(rhs)
 
-          treeCopy.DefDef(tree, mods, name, tparams, vparams, tpt,
-                  if (LocalLazyValFinder.find(res)) typed(addBitmapDefs(sym, res)) else res)
+          deriveDefDef(tree)(_ => if (LocalLazyValFinder.find(res)) typed(addBitmapDefs(sym, res)) else res)
         }
 
-        case Template(parents, self, body) => atOwner(currentOwner) {
+        case Template(_, _, body) => atOwner(currentOwner) {
           val body1 = super.transformTrees(body)
           var added = false
           val stats =
@@ -106,8 +105,8 @@ abstract class LazyVals extends Transform with TypingTransformers with ast.TreeD
                   added = true
                   typed(addBitmapDefs(sym, stat))
                 } else stat
-              case ValDef(mods, name, tpt, rhs) =>
-                typed(treeCopy.ValDef(stat, mods, name, tpt, addBitmapDefs(stat.symbol, rhs)))
+              case ValDef(_, _, _, _) =>
+                typed(deriveValDef(stat)(addBitmapDefs(stat.symbol, _)))
               case _ =>
                 stat
             }
@@ -122,13 +121,14 @@ abstract class LazyVals extends Transform with TypingTransformers with ast.TreeD
                 })
                 toAdd0
             } else List()
-          treeCopy.Template(tree, parents, self, innerClassBitmaps ++ stats)
+          deriveTemplate(tree)(_ => innerClassBitmaps ++ stats)
         }
 
-        case ValDef(mods, name, tpt, rhs0) if (!sym.owner.isModule && !sym.owner.isClass) =>
-          val rhs = super.transform(rhs0)
-          treeCopy.ValDef(tree, mods, name, tpt,
-                  if (LocalLazyValFinder.find(rhs)) typed(addBitmapDefs(sym, rhs)) else rhs)
+        case ValDef(_, _, _, _) if !sym.owner.isModule && !sym.owner.isClass =>
+          deriveValDef(tree) { rhs0 => 
+            val rhs = super.transform(rhs0)
+            if (LocalLazyValFinder.find(rhs)) typed(addBitmapDefs(sym, rhs)) else rhs
+          }
 
         case l@LabelDef(name0, params0, ifp0@If(_, _, _)) if name0.startsWith(nme.WHILE_PREFIX) =>
           val ifp1 = super.transform(ifp0)

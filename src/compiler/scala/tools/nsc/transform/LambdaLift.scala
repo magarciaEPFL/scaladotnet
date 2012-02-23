@@ -320,12 +320,13 @@ abstract class LambdaLift extends InfoTransform {
       case Some(ps) =>
         val freeParams = ps map (p => ValDef(p) setPos tree.pos setType NoType)
         tree match {
-          case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+          case DefDef(_, _, _, vparams :: _, _, _) =>
             val addParams = cloneSymbols(ps).map(_.setFlag(PARAM))
             sym.updateInfo(
               lifted(MethodType(sym.info.params ::: addParams, sym.info.resultType)))
-            treeCopy.DefDef(tree, mods, name, tparams, List(vparamss.head ++ freeParams), tpt, rhs)
-          case ClassDef(mods, name, tparams, impl @ Template(parents, self, body)) =>
+            
+            copyDefDef(tree)(vparamss = List(vparams ++ freeParams))
+          case ClassDef(mods, name, tparams, impl) =>
             // Disabled attempt to to add getters to freeParams
             // this does not work yet. Problem is that local symbols need local names
             // and references to local symbols need to be transformed into
@@ -337,8 +338,7 @@ abstract class LambdaLift extends InfoTransform {
             //   DefDef(getter, rhs) setPos tree.pos setType NoType
             // }
             // val newDefs = if (sym.isTrait) freeParams ::: (ps map paramGetter) else freeParams
-            treeCopy.ClassDef(tree, mods, name, tparams,
-                              treeCopy.Template(impl, parents, self, body ::: freeParams))
+            treeCopy.ClassDef(tree, mods, name, tparams, deriveTemplate(impl)(_ ::: freeParams))
         }
       case None =>
         tree
@@ -480,17 +480,16 @@ abstract class LambdaLift extends InfoTransform {
     /** Transform statements and add lifted definitions to them. */
     override def transformStats(stats: List[Tree], exprOwner: Symbol): List[Tree] = {
       def addLifted(stat: Tree): Tree = stat match {
-        case ClassDef(mods, name, tparams, impl @ Template(parents, self, body)) =>
+        case ClassDef(mods, name, tparams, impl) =>
           val lifted = liftedDefs get stat.symbol match {
             case Some(xs) => xs reverseMap addLifted
             case _        => log("unexpectedly no lifted defs for " + stat.symbol) ; Nil
           }
-          val result = treeCopy.ClassDef(
-            stat, mods, name, tparams, treeCopy.Template(impl, parents, self, body ::: lifted))
-          liftedDefs -= stat.symbol
-          result
-        case DefDef(mods, name, tp, vp, tpt, Block(Nil, expr)) if !stat.symbol.isConstructor =>
-          treeCopy.DefDef(stat, mods, name, tp, vp, tpt, expr)
+          try treeCopy.ClassDef(stat, mods, name, tparams, deriveTemplate(impl)(_ ::: lifted))
+          finally liftedDefs -= stat.symbol
+
+        case DefDef(_, _, _, _, _, Block(Nil, expr)) if !stat.symbol.isConstructor =>
+          deriveDefDef(stat)(_ => expr)
         case _ =>
           stat
       }
