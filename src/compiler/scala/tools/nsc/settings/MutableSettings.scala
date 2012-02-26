@@ -533,7 +533,7 @@ class MutableSettings(val errorFn: String => Unit)
       Some(rest)
     }
     override def tryToSetColon(args: List[String]) = tryToSet(args)
-    override def tryToSetFromPropertyValue(s: String) = tryToSet(_root_.java.lang.String.instancehelper_split(s.Trim, " +").toList)
+    override def tryToSetFromPropertyValue(s: String) = tryToSet(s.Trim.split(',').toList)
     def unparse: List[String] = value map { name + ":" + _ }
 
     withHelpSyntax(name + ":<" + arg + ">")
