@@ -193,10 +193,6 @@ class Global(var currentSettings: Settings, var reporter: Reporter) extends Symb
     if (settings.debug.value)
       body
   }
-  @inline final override def debuglog(msg: => String) {
-    if (settings.debug.value && (settings.log containsPhase globalPhase))
-      inform("[log " + phase + "] " + msg)
-  }
   // Warnings issued only under -Ydebug.  For messages which should reach
   // developer ears, but are not adequately actionable by users.
   @inline final override def debugwarn(msg: => String) {
@@ -224,12 +220,17 @@ class Global(var currentSettings: Settings, var reporter: Reporter) extends Symb
   )
 
   def logAfterEveryPhase[T](msg: String)(op: => T) {
-    log("Running operation '%s' after every phase.\n" + describeAfterEveryPhase(op))
+    log("Running operation '%s' after every phase.\n".format(msg) + describeAfterEveryPhase(op))
   }
   // Over 200 closure objects are eliminated by inlining this.
   @inline final def log(msg: => AnyRef): Unit =
     if (shouldLogAtThisPhase)
       inform("[log %s%s] %s".format(globalPhase, atPhaseStackMessage, msg))
+
+  @inline final override def debuglog(msg: => String) {
+    if (settings.debug.value)
+      log(msg)
+  }
 
   def logThrowable(t: System.Exception): Unit = globalError(throwableAsString(t))
   def throwableAsString(t: System.Exception): String =
@@ -866,9 +867,27 @@ class Global(var currentSettings: Settings, var reporter: Reporter) extends Symb
   def currentUnit: CompilationUnit = if (currentRun eq null) NoCompilationUnit else currentRun.currentUnit
   def currentSource: SourceFile    = if (currentUnit.exists) currentUnit.source else lastSeenSourceFile
   
-  @inline final def afterTyper[T](op: => T): T = afterPhase(currentRun.typerPhase)(op)
-  @inline final def beforeErasure[T](op: => T): T = beforePhase(currentRun.erasurePhase)(op)
+  // TODO - trim these to the absolute minimum.
   @inline final def afterErasure[T](op: => T): T = afterPhase(currentRun.erasurePhase)(op)
+  @inline final def afterExplicitOuter[T](op: => T): T = afterPhase(currentRun.explicitouterPhase)(op)
+  @inline final def afterFlatten[T](op: => T): T = afterPhase(currentRun.flattenPhase)(op)
+  @inline final def afterIcode[T](op: => T): T = afterPhase(currentRun.icodePhase)(op)
+  @inline final def afterMixin[T](op: => T): T = afterPhase(currentRun.mixinPhase)(op)
+  @inline final def afterPickler[T](op: => T): T = afterPhase(currentRun.picklerPhase)(op)
+  @inline final def afterRefchecks[T](op: => T): T = afterPhase(currentRun.refchecksPhase)(op)
+  @inline final def afterSpecialize[T](op: => T): T = afterPhase(currentRun.specializePhase)(op)
+  @inline final def afterTyper[T](op: => T): T = afterPhase(currentRun.typerPhase)(op)
+  @inline final def afterUncurry[T](op: => T): T = afterPhase(currentRun.uncurryPhase)(op)
+  @inline final def beforeErasure[T](op: => T): T = beforePhase(currentRun.erasurePhase)(op)
+  @inline final def beforeExplicitOuter[T](op: => T): T = beforePhase(currentRun.explicitouterPhase)(op)
+  @inline final def beforeFlatten[T](op: => T): T = beforePhase(currentRun.flattenPhase)(op)
+  @inline final def beforeIcode[T](op: => T): T = beforePhase(currentRun.icodePhase)(op)
+  @inline final def beforeMixin[T](op: => T): T = beforePhase(currentRun.mixinPhase)(op)
+  @inline final def beforePickler[T](op: => T): T = beforePhase(currentRun.picklerPhase)(op)
+  @inline final def beforeRefchecks[T](op: => T): T = beforePhase(currentRun.refchecksPhase)(op)
+  @inline final def beforeSpecialize[T](op: => T): T = beforePhase(currentRun.specializePhase)(op)
+  @inline final def beforeTyper[T](op: => T): T = beforePhase(currentRun.typerPhase)(op)
+  @inline final def beforeUncurry[T](op: => T): T = beforePhase(currentRun.uncurryPhase)(op)
 
   /** Don't want to introduce new errors trying to report errors,
    *  so swallow exceptions.
