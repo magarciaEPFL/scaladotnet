@@ -7,7 +7,6 @@ package scala.tools
 package util
 
 object EditDistance {
-  
   def similarString(name: String, allowed: TraversableOnce[String]): String = {
     val suggested = suggestions(name, allowed.toSeq, maxDistance = 1, maxSuggestions = 2)
     if (suggested.isEmpty) ""

@@ -19,7 +19,7 @@ import scala.collection.mutable.Stack
 
 class ExecutionContextImpl(executorService: ExecutorService) extends ExecutionContext {
   import ExecutionContextImpl._
-  
+
   def execute(runnable: java.lang.Runnable): Unit = executorService match {
     // case fj: ForkJoinPool =>
     //   TODO fork if more applicable
@@ -27,16 +27,16 @@ class ExecutionContextImpl(executorService: ExecutorService) extends ExecutionCo
     case _ =>
       executorService execute runnable
   }
-  
+
   def execute[U](body: () => U): Unit = execute(new java.lang.Runnable {
     def run() = body()
   })
-  
+
   def promise[T]: Promise[T] = new Promise.DefaultPromise[T]()(this)
-  
+
   def future[T](body: =>T): Future[T] = {
     val p = promise[T]
-    
+
     dispatchFuture {
       () =>
       p complete {
@@ -47,39 +47,39 @@ class ExecutionContextImpl(executorService: ExecutorService) extends ExecutionCo
         }
       }
     }
-    
+
     p.future
   }
-  
+
   def blocking[T](atMost: Duration)(body: =>T): T = blocking(body2awaitable(body), atMost)
-  
+
   def blocking[T](awaitable: Awaitable[T], atMost: Duration): T = {
     currentExecutionContext.get.asInstanceOf[ExecutionContextImpl] match {
       case null => awaitable.await(atMost)(null) // outside - TODO - fix timeout case
       case x => x.blockingCall(awaitable) // inside an execution context thread
     }
   }
-  
+
   def reportFailure(t: System.Exception) = t match {
     case e: System.Exception => throw e // rethrow serious errors
     case t => java.lang.Throwable.instancehelper_printStackTrace(t)
   }
-  
+
   /** Only callable from the tasks running on the same execution context. */
   private def blockingCall[T](body: Awaitable[T]): T = {
     releaseStack()
-    
+
     // TODO see what to do with timeout
     body.await(Duration.fromNanos(0))(CanAwaitEvidence)
   }
-  
+
   // an optimization for batching futures
   // TODO we should replace this with a public queue,
   // so that it can be stolen from
   // OR: a push to the local task queue should be so cheap that this is
   // not even needed, but stealing is still possible
   private val _taskStack = new java.lang.ThreadLocal/*[Stack[() => Unit]]*/()
-  
+
   private def releaseStack(): Unit =
     _taskStack.get.asInstanceOf[Stack[() => Unit]] match {
       case stack if (stack ne null) && stack.nonEmpty =>
@@ -92,7 +92,7 @@ class ExecutionContextImpl(executorService: ExecutorService) extends ExecutionCo
       case _ =>
         _taskStack.remove()
     }
-  
+
   private[impl] def dispatchFuture(task: () => Unit, force: Boolean = false): Unit =
     _taskStack.get.asInstanceOf[Stack[() => Unit]] match {
       case stack if (stack ne null) && !force => stack push task
@@ -119,7 +119,7 @@ class ExecutionContextImpl(executorService: ExecutorService) extends ExecutionCo
         }
       )
     }
-  
+
 }
 
 
@@ -128,7 +128,7 @@ object ExecutionContextImpl {
   private[concurrent] def currentExecutionContext: java.lang.ThreadLocal/*[ExecutionContextImpl]*/ = new java.lang.ThreadLocal/*[ExecutionContextImpl]*/ {
     override protected def initialValue = null
   }
-  
+
 }
 
 

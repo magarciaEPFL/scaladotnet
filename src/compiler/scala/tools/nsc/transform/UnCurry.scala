@@ -147,7 +147,7 @@ abstract class UnCurry extends InfoTransform
     private def nonLocalReturnThrow(expr: Tree, meth: Symbol) = localTyper typed {
       Throw(
         nonLocalReturnExceptionType(expr.tpe.widen),
-        Ident(nonLocalReturnKey(meth)), 
+        Ident(nonLocalReturnKey(meth)),
         expr
       )
     }
@@ -247,7 +247,7 @@ abstract class UnCurry extends InfoTransform
           else List(ObjectClass.tpe, fun.tpe, SerializableClass.tpe)
 
         anonClass setInfo ClassInfoType(parents, newScope, anonClass)
-        val applyMethod = anonClass.newMethod(nme.apply, fun.pos, FINAL) 
+        val applyMethod = anonClass.newMethod(nme.apply, fun.pos, FINAL)
         applyMethod setInfoAndEnter MethodType(applyMethod newSyntheticValueParams formals, restpe)
         anonClass addAnnotation serialVersionUIDAnnotation
 
@@ -452,6 +452,24 @@ abstract class UnCurry extends InfoTransform
       }
     }
 
+    private def isSelfSynchronized(ddef: DefDef) = ddef.rhs match {
+      case Apply(fn @ TypeApply(Select(sel, _), _), _) =>
+        fn.symbol == Object_synchronized && sel.symbol == ddef.symbol.enclClass && !ddef.symbol.enclClass.isTrait
+      case _ => false
+    }
+
+    /** If an eligible method is entirely wrapped in a call to synchronized
+     *  locked on the same instance, remove the synchronized scaffolding and
+     *  mark the method symbol SYNCHRONIZED for bytecode generation.
+     */
+    private def translateSynchronized(tree: Tree) = tree match {
+      case dd @ DefDef(_, _, _, _, _, Apply(fn, body :: Nil)) if isSelfSynchronized(dd) =>
+        log("Translating " + dd.symbol.defString + " into synchronized method")
+        dd.symbol setFlag SYNCHRONIZED
+        deriveDefDef(dd)(_ => body)
+      case _ => tree
+    }
+
 // ------ The tree transformers --------------------------------------------------------
 
     def mainTransform(tree: Tree): Tree = {
@@ -495,9 +513,10 @@ abstract class UnCurry extends InfoTransform
         // breakage until a reasonable interface is settled upon.
         if ((sym ne null) && (sym.elisionLevel.exists (_ < settings.elidebelow.value || settings.noassertions.value)))
           replaceElidableTree(tree)
-        else tree match {
+        else translateSynchronized(tree) match {
           case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
             if (dd.symbol hasAnnotation VarargsClass) saveRepeatedParams(dd)
+
             withNeedLift(false) {
               if (dd.symbol.isClassConstructor) {
                 atOwner(sym) {
@@ -512,11 +531,11 @@ abstract class UnCurry extends InfoTransform
                       treeCopy.Block(rhs, presupers ::: supercalls ::: others, transform(expr))
                   }
                   treeCopy.DefDef(
-                    tree, mods, name, transformTypeDefs(tparams),
+                    dd, mods, name, transformTypeDefs(tparams),
                     transformValDefss(vparamss), transform(tpt), rhs1)
                 }
               } else {
-                super.transform(tree)
+                super.transform(dd)
               }
             }
           case ValDef(_, _, _, rhs) =>
@@ -762,7 +781,7 @@ abstract class UnCurry extends InfoTransform
           // add the method to `newMembers`
           newMembers += forwtree
       }
-      
+
       flatdd
     }
   }

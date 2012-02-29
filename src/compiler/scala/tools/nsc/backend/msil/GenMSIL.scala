@@ -456,6 +456,12 @@ abstract class GenMSIL extends SubComponent {
           constrbldrs(m.symbol).GetILGenerator()
         } else {
           val mBuilder = methodbldrs(m.symbol)
+          import IKVM.Reflection.MethodImplAttributes;
+          var mflags = ( MethodImplAttributes.IL | MethodImplAttributes.Managed )
+          if (m.symbol.hasFlag(Flags.SYNCHRONIZED)) {
+            mflags |= MethodImplAttributes.Synchronized
+          }
+          mBuilder.SetImplementationFlags(mflags) // "Call the SetImplementationFlags method before you call the SetCustomAttribute method."
           if (!mBuilder.IsAbstract) mBuilder.GetILGenerator()
           else null
         }

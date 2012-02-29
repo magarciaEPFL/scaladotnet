@@ -707,7 +707,7 @@ abstract class Inliners extends SubComponent {
       }
 
       def isStampedForInlining(stackLength: Int) =
-        !sameSymbols && inc.m.hasCode && shouldInline && isSafeToInline(stackLength)
+        !sameSymbols && inc.m.hasCode && shouldInline && isSafeToInline(stackLength) && !inc.m.symbol.hasFlag(Flags.SYNCHRONIZED)
 
       def logFailure(stackLength: Int) = log(
         """|inline failed for %s:
