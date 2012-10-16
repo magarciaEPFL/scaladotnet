@@ -44,6 +44,7 @@ class Global(var currentSettings: Settings, var reporter: Reporter) extends Symb
                                                                       with symtab.Positions {
 
   override def settings = currentSettings
+	def repl = false
 
   // alternate constructors ------------------------------------------
 
@@ -286,6 +287,7 @@ class Global(var currentSettings: Settings, var reporter: Reporter) extends Symb
 
   object opt extends AestheticSettings {
     def settings = Global.this.settings
+		val repl = Global.this.repl
 
     // protected implicit lazy val globalPhaseOrdering: Ordering[Phase] = Ordering[Int] on (_.id)
     def isActive(ph: Settings#PhasesSetting)  = ph containsPhase globalPhase
@@ -333,7 +335,7 @@ class Global(var currentSettings: Settings, var reporter: Reporter) extends Symb
     def profileMem   = settings.YprofileMem.value
 
     // shortish-term property based options
-    def timings       = true
+    def timings       = {if (!repl) true else false}
     def inferDebug    = (sys.props contains "scalac.debug.infer") || settings.Yinferdebug.value
     def typerDebug    = (sys.props contains "scalac.debug.typer") || settings.Ytyperdebug.value
     def lubDebug      = (sys.props contains "scalac.debug.lub")
