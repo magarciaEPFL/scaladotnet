@@ -590,10 +590,11 @@ class ILoop(in0: Option[BufferedReader], protected val out: JPrintWriter)
     }
     // return false if repl should exit
     def processLine(line: String): Boolean = {
-      if (isAsync) {
+    /*  if (isAsync) {
         awaitInitialized()
         runThunks()
       }
+		*/
       if (line eq null) false               // assume null means EOF
       else command(line) match {
         case Result(false, _)           => false
@@ -866,8 +867,22 @@ class ILoop(in0: Option[BufferedReader], protected val out: JPrintWriter)
         echo("Failed to created JLineReader: " + ex + "\nFalling back to SimpleReader.")
         SimpleReader()
     }
-  }
+		
+	}
+	def createTempDirectory(settings: Settings) {
+		val path = System.IO.Directory.GetCurrentDirectory + java.io.File.separatorChar + "%TEMP"
+		if(!System.IO.Directory.Exists(path)) {
+			val di = System.IO.Directory.CreateDirectory(path)
+			di.Attributes = System.IO.FileAttributes.Directory | System.IO.FileAttributes.Hidden
+		}
+		else {	
+			val temp = new System.IO.DirectoryInfo(path)
+			temp.GetFiles foreach {x => x.Delete}
+		}
+		settings.outdir.value_=(path)
+	}
   def process(settings: Settings): Boolean = savingContextLoader {
+		createTempDirectory(settings)
     this.settings = settings
     createInterpreter()
 
@@ -892,14 +907,14 @@ class ILoop(in0: Option[BufferedReader], protected val out: JPrintWriter)
     // our best to look ready.  The interlocking lazy vals tend to
     // inter-deadlock, so we break the cycle with a single asynchronous
     // message to an actor.
-    if (isAsync) {
+/*    if (isAsync) {
       intp initialize initializedCallback()
       createAsyncListener() // listens for signal to run postInitialization
     }
     else {
       intp.initializeSynchronous()
       postInitialization()
-    }
+    } */
     printWelcome()
 
     try loop()
@@ -1022,5 +1037,15 @@ object ILoop {
 
     echo("\nDebug repl exiting.")
     repl.closeInterpreter()
+  }
+	def main(args: Array[String]) {
+		def process(args: Array[String]) : Boolean = {
+			val ss       = new Settings
+			val command  = new CompilerCommand(args.toList, ss)
+			val settings = command.settings
+			(new ILoop process settings)
+		}
+    if (!process(args))
+      sys.exit(1)
   }
 }

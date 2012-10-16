@@ -23,6 +23,8 @@ import scala.collection.{ mutable, immutable }
 import scala.util.control.Exception.{ ultimately }
 import IMain._
 import java.util.concurrent.Future
+import System.Reflection._
+import System.Runtime.Serialization.FormatterServices
 
 /** directory to save .class files to */
 private class ReplVirtualDirectory(out: JPrintWriter) extends VirtualDirectory("(memory)", None) {
@@ -169,7 +171,7 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
   def isInitializeComplete = _initializeComplete
 
   /** the public, go through the future compiler */
-  lazy val global: Global = {
+/*  lazy val global: Global = {
     if (isInitializeComplete) _compiler
     else {
       // If init hasn't been called yet you're on your own.
@@ -178,10 +180,15 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
         initialize(())
       }
       // blocks until it is ; false means catastrophic failure
-      if (_isInitialized.get().asInstanceOf[Boolean] /* MANUALLY */ ) _compiler
+      if (_isInitialized.get().asInstanceOf[Boolean]  MANUALLY  ) _compiler
       else null
     }
-  }
+  } */
+	
+	lazy val global: Global = {
+      new _compiler.Run()
+      _compiler
+	}
   @deprecated("Use `global` for access to the compiler instance.", "2.9.0")
   lazy val compiler: global.type = global
 
@@ -269,12 +276,19 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
   protected def createLineManager(classLoader: java.lang.ClassLoader): Line.Manager = new Line.Manager(classLoader)
 
   /** Instantiate a compiler.  Overridable. */
-  protected def newCompiler(settings: Settings, reporter: Reporter) = {
+/*  protected def newCompiler(settings: Settings, reporter: Reporter) = {
     settings.outputDirs setSingleOutput virtualDirectory
     settings.exposeEmptyPackage.value = true
 
     Global(settings, reporter)
-  }
+  } */
+	
+	protected def newCompiler(settings: Settings, reporter: Reporter): Global = {
+		settings.exposeEmptyPackage.value = true
+		new Global(settings, reporter) {
+			override def repl = true
+		}
+	}
 
   /** Parent classloader.  Overridable. */
   protected def parentClassLoader: java.lang.ClassLoader =
@@ -440,6 +454,7 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
     val run = new Run()
     reporter.reset()
     run compileSources sources.toList
+
     (!reporter.hasErrors, run)
   }
 
@@ -631,7 +646,7 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
         |  def set(x: Any) = value = x.asInstanceOf[%s]
         |}
       """.stripMargin.format(bindRep.evalName, boundType, boundType)
-      )
+      , bindRep.packageName)
     bindRep.callEither("set", value) match {
       case Left(ex) =>
         repldbg("Set failed in bind(%s, %s, %s)".format(name, boundType, value))
@@ -749,14 +764,26 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
     def evalPath  = pathTo(evalName)
     def printPath = pathTo(printName)
 
-    def call(name: String, args: Any*): AnyRef = {
+/*    def call(name: String, args: Any*): AnyRef = {
       val m = evalMethod(name)
       repldbg("Invoking: " + m)
       if (args.nonEmpty)
         repldbg("  with args: " + args.mkString(", "))
 
       m.invoke(evalClass, scala.Array( args.map(_.asInstanceOf[AnyRef]): _* ) )
-    }
+    } */
+		
+		def call(name: String, args: Any*): AnyRef = {
+			try {
+				val asm = Assembly.LoadFrom(global.settings.outdir.value + java.io.File.separatorChar + packageName+evalName+".dll")
+				val typ = asm.GetType(evalPath)
+				val m = typ.GetMethod(name)
+				val ClassObj = FormatterServices.GetUninitializedObject(typ)
+				m.Invoke(ClassObj, scala.Array(args.map(_.asInstanceOf[AnyRef]):_*))
+			} catch {
+				case ex => evalError(evalPath, unwrap(ex))
+			}
+		}
 
     def callEither(name: String, args: Any*): Either[System.Exception, AnyRef] =
       try Right(call(name, args: _*))
@@ -783,7 +810,10 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
       case Right(result) => Some(result)
     }
 
-    def compile(source: String): Boolean = compileAndSaveRun("<console>", source)
+    def compile(source: String, fileName: String): Boolean = {
+			global.settings.assemname.value_=(packageName+fileName)
+			compileAndSaveRun("<console>", source)
+		}
 
     /** The innermost object inside the wrapper, found by
       * following accessPath into the outer one.
@@ -938,17 +968,17 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
       reporter.reset()
 
       // compile the object containing the user's code
-      lineRep.compile(ObjectSourceCode(handlers)) && {
+      lineRep.compile(ObjectSourceCode(handlers), lineRep.readName) && {
         // extract and remember types
         typeOf
         typesOfDefinedTerms
 
         // compile the result-extraction object
-        beQuietDuring {
-          savingSettings(_.nowarn.value = true) {
-            lineRep compile ResultObjectSourceCode(handlers)
-          }
-        }
+       // beQuietDuring {
+       //   savingSettings(_.nowarn.value = true) {
+            lineRep.compile(ResultObjectSourceCode(handlers), lineRep.evalName)
+       //   }
+       // }
       }
     }
 
@@ -1165,11 +1195,12 @@ class IMain(initialSettings: Settings, protected val out: JPrintWriter) extends 
       prettyPrint(code)
 
     // old style
-    beSilentDuring(parse(code)) foreach { ts =>
-      ts foreach { t =>
-        withoutUnwrapping(repldbg(asCompactString(t)))
-      }
-    }
+    //beSilentDuring(parse(code)) foreach { ts =>
+		//parse(code) foreach { ts =>	
+		//	ts foreach { t =>
+    //    withoutUnwrapping(repldbg(asCompactString(t)))
+    //  }
+    //}
   }
 
   // debugging

@@ -51,7 +51,7 @@ abstract class GenMSIL extends SubComponent {
         classes.values foreach { iclass => codeGenerator.findEntryPoint(iclass, entryClassName) }
       }
       val needsEntryPoint = Set("exe", "winexe") contains settings.target.value
-      if(needsEntryPoint && (codeGenerator.entryPoint == null)) {
+      if(needsEntryPoint && (codeGenerator.entryPoint == null) && !global.repl) {
         if(opt.showClass.isDefined) warning("Couldn't find entry point in class " + entryClassName + ", emitting .dll instead.")
         else warning("No entry point was given (missing -Xshow-class), emitting .dll instead.")
       }
@@ -1773,8 +1773,10 @@ abstract class GenMSIL extends SubComponent {
     // val dynToStatMapped = mutable.HashSet[Symbol]()
 
     def mapType(csym: Symbol, mType: MsilType) {
+		if(!global.repl) {
       assert(mType != null, showsym(csym))
       assert(!clrTypes.types.contains(csym), showsym(csym))
+		}
       clrTypes.types(csym) = mType
     }
 
